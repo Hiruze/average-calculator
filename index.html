@@ -241,6 +241,63 @@ ab.addEventListener('click',()=>{const ns={id:g(),name:'Новый предме�
 rb.addEventListener('click',()=>{if(confirm('Сбросить к школьному списку?')){setSchool();fr()}});
 
 if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+// Автообновление PWA
+if ('serviceWorker' in navigator) {
+  let refreshing = false;
+  
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    // Проверяем обновления каждые 30 минут
+    setInterval(() => {
+      reg.update();
+    }, 30 * 60 * 1000);
+    
+    // Когда найден новый SW
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          // Новый SW готов — показываем уведомление
+          showUpdateNotification();
+        }
+      });
+    });
+  });
+  
+  // Если SW контролирует страницу и меняется
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
+  });
+  
+  function showUpdateNotification() {
+    // Создаём простое уведомление вверху страницы
+    const banner = document.createElement('div');
+    banner.style.cssText = `
+      position: fixed; top: 0; left: 0; right: 0;
+      background: #3366cc; color: white; padding: 0.8rem 1rem;
+      text-align: center; z-index: 9999;
+      font-size: 0.9rem; display: flex;
+      align-items: center; justify-content: center;
+      gap: 0.8rem; cursor: pointer;
+    `;
+    banner.innerHTML = '🔄 Доступна новая версия. <strong>Нажмите, чтобы обновить</strong>';
+    banner.addEventListener('click', () => {
+      banner.remove();
+      navigator.serviceWorker.ready.then(reg => {
+        reg.waiting.postMessage('skipWaiting');
+      });
+    });
+    document.body.appendChild(banner);
+    
+    // Автоматически убираем через 10 секунд
+    setTimeout(() => {
+      if (banner.parentNode) banner.remove();
+    }, 10000);
+  }
+}
 fr();
 })();
 </script>
