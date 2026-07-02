@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Средний балл</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#3366cc">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="apple-touch-icon" href="icon-128.png">
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+    }
+    body {
+      background: #f8f9fa;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 1rem;
+      padding-top: max(1rem, env(safe-area-inset-top));
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    .dashboard {
+      max-width: 900px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+      background: white;
+      border-radius: 1.2rem;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+      padding: 1.5rem;
+    }
+    .main-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+    }
+    h2 {
+      font-weight: 600;
+      font-size: 1.3rem;
+      color: #1a2639;
+    }
+    .subjects-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      max-height: 50vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .subject-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.5rem;
+      border-radius: 0.5rem;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    .subject-row.active {
+      background: #f5f8ff;
+      border-color: #d0ddf5;
+    }
+    .subject-row.inactive {
+      opacity: 0.45;
+    }
+    .toggle-check {
+      width: 1.1rem;
+      height: 1.1rem;
+      accent-color: #3366cc;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .subject-name {
+      flex: 1;
+      font-size: 0.9rem;
+      color: #333;
+      border: none;
+      background: transparent;
+      padding: 0.2rem 0.3rem;
+      border-radius: 0.3rem;
+      outline: none;
+      min-width: 80px;
+    }
+    .subject-name:focus {
+      background: #eef3fc;
+    }
+    .grade-input {
+      width: 44px;
+      padding: 0.3rem;
+      border: 1px solid #ddd;
+      border-radius: 0.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+      transition: 0.15s;
+    }
+    .grade-input:focus {
+      outline: none;
+      border-color: #3366cc;
+      box-shadow: 0 0 0 2px rgba(51,102,204,0.12);
+    }
+    .grade-input.invalid {
+      border-color: #d94444;
+      background: #fff7f7;
+    }
+    .remove-btn {
+      background: none;
+      border: none;
+      color: #bbb;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.2rem 0.3rem;
+      line-height: 1;
+      border-radius: 0.3rem;
+      transition: 0.15s;
+      flex-shrink: 0;
+    }
+    .remove-btn:hover {
+      color: #d94444;
+      background: #fceeef;
+    }
+    .controls {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      border: 1px solid #ddd;
+      background: white;
+      padding: 0.45rem 0.8rem;
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: 0.2s;
+      color: #444;
+      white-space: nowrap;
+    }
+    .btn:active {
+      background: #e8ecf2;
+    }
+    .btn.export-btn {
+      background: #e8f5e9;
+      border-color: #a5d6a7;
+      color: #2e7d32;
+    }
+    .btn.export-btn:active {
+      background: #c8e6c9;
+    }
+    .btn.import-btn {
+      background: #e3f2fd;
+      border-color: #90caf9;
+      color: #1565c0;
+    }
+    .btn.import-btn:active {
+      background: #bbdefb;
+    }
+    .average-box {
+      background: #f5f8ff;
+      border-radius: 0.8rem;
+      padding: 0.8rem 1rem;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .avg-label {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    .avg-value {
+      font-size: 2rem;
+      font-weight: 650;
+      color: #1a2d4a;
+    }
+    .backend-wrapper {
+      border-top: 1px solid #eef1f5;
+      padding-top: 0.6rem;
+    }
+    .backend-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      cursor: pointer;
+      font-size: 0.8rem;
+      color: #777;
+      user-select: none;
+      padding: 0.3rem 0;
+      transition: color 0.15s;
+    }
+    .backend-toggle:active {
+      color: #444;
+    }
+    .backend-toggle .arrow {
+      display: inline-block;
+      transition: transform 0.2s;
+      font-size: 0.7rem;
+    }
+    .backend-toggle.open .arrow {
+      transform: rotate(90deg);
+    }
+    .backend-content {
+      display: none;
+      margin-top: 0.4rem;
+    }
+    .backend-content.visible {
+      display: block;
+    }
+    .backend-log {
+      background: #1c2128;
+      border-radius: 0.7rem;
+      padding: 0.7rem 0.9rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.7rem;
+      line-height: 1.55;
+      color: #c8d6e0;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-line {
+      padding: 0.12rem 0;
+      border-bottom: 1px solid #2a3138;
+    }
+    .highlight {
+      color: #f0c060;
+      font-weight: 500;
+    }
+    .hint {
+      font-size: 0.7rem;
+      color: #999;
+    }
+    #fileInput {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard">
+  <div class="main-panel">
+    <div class="header-row">
+      <h2>📊 Средний балл</h2>
+      <div class="controls">
+        <button class="btn" id="addSubjectBtn">+ Добавить</button>
+        <button class="btn" id="resetDemoBtn">↺ Сброс</button>
+        <button class="btn export-btn" id="exportBtn">📥</button>
+        <button class="btn import-btn" id="importBtn">📤</button>
+      </div>
+    </div>
+
+    <div class="subjects-list" id="subjectsContainer"></div>
+
+    <div class="average-box">
+      <span class="avg-label">Средний балл</span>
+      <span class="avg-value" id="averageDisplay">—</span>
+    </div>
+    <div class="hint">✅ Включённые предметы · Оценки — целые числа</div>
+
+    <div class="backend-wrapper">
+      <div class="backend-toggle" id="backendToggle">
+        <span class="arrow">▶</span> Бэкенд вычислений
+      </div>
+      <div class="backend-content" id="backendContent">
+        <div class="backend-log" id="logContainer">Ожидание данных...</div>
+      </div>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept=".xlsx,.xls">
+</div>
+
+<script>
+  (function() {
+    let subjects = [];
+    function generateId() {
+      return Date.now().toString(36) + Math.random().toString(36).substring(2, 6);
+    }
+
+    function setSchoolSubjects() {
+      const schoolList = [
+        'Русский язык', 'Литература', 'Иностранный язык', 'Математика',
+        'История', 'Обществознание', 'География', 'Информатика',
+        'Физика', 'Химия', 'Биология', 'Музыка',
+        'Изобразительное искусство', 'Труд', 'ОБЖ', 'Физическая культура'
+      ];
+      subjects = schoolList.map(name => ({
+        id: generateId(), name, grade: 4, active: true
+      }));
+    }
+
+    // Загружаем сохранённые данные или используем школьный список
+    function loadData() {
+      try {
+        const saved = localStorage.getItem('subjects_data');
+        if (saved) {
+          subjects = JSON.parse(saved);
+          if (!Array.isArray(subjects) || subjects.length === 0) {
+            setSchoolSubjects();
+          }
+        } else {
+          setSchoolSubjects();
+        }
+      } catch (e) {
+        setSchoolSubjects();
+      }
+    }
+
+    function saveData() {
+      try {
+        localStorage.setItem('subjects_data', JSON.stringify(subjects));
+      } catch (e) {}
+    }
+
+    loadData();
+
+    const subjectsContainer = document.getElementById('subjectsContainer');
+    const averageDisplay = document.getElementById('averageDisplay');
+    const logContainer = document.getElementById('logContainer');
+    const addSubjectBtn = document.getElementById('addSubjectBtn');
+    const resetDemoBtn = document.getElementById('resetDemoBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const fileInput = document.getElementById('fileInput');
+    const backendToggle = document.getElementById('backendToggle');
+    const backendContent = document.getElementById('backendContent');
+
+    backendToggle.addEventListener('click', () => {
+      const isOpen = backendContent.classList.toggle('visible');
+      backendToggle.classList.toggle('open', isOpen);
+    });
+
+    function roundToThousandths(value) {
+      const multiplied = value * 10000;
+      const integerPart = Math.floor(multiplied);
+      const fourthDigit = integerPart % 10;
+      const baseThousandths = Math.floor(integerPart / 10);
+      let finalThousandths, decision;
+      if (fourthDigit >= 5) {
+        finalThousandths = baseThousandths + 1;
+        decision = `4-я цифра = ${fourthDigit} ≥ 5 → +1 к 3-й`;
+      } else {
+        finalThousandths = baseThousandths;
+        decision = `4-я цифра = ${fourthDigit} ≤ 4 → оставляем`;
+      }
+      return { roundedValue: finalThousandths / 1000, exactValue: value, decision };
+    }
+
+    function isInteger(value) {
+      return typeof value === 'number' && !isNaN(value) && Number.isInteger(value);
+    }
+
+    function calculateAverage() {
+      const activeSubjects = subjects.filter(sub => sub.active && isInteger(sub.grade));
+      const count = activeSubjects.length;
+      let logLines = [];
+      logLines.push(`Всего предметов: ${subjects.length}`);
+      logLines.push(`Активных с оценкой: ${count}`);
+      
+      const bad = subjects.filter(sub => sub.active && !isInteger(sub.grade));
+      if (bad.length > 0) {
+        logLines.push(`⚠ Пропущено: ${bad.length}`);
+      }
+      
+      if (count === 0) {
+        logLines.push(`Средний балл не определён.`);
+        updateLog(logLines);
+        return null;
+      }
+
+      let sum = 0;
+      activeSubjects.forEach((sub, i) => {
+        sum += sub.grade;
+        logLines.push(`  ${i+1}. ${sub.name} = ${sub.grade}`);
+      });
+
+      const exactAverage = sum / count;
+      const roundingResult = roundToThousandths(exactAverage);
+      
+      logLines.push(`Сумма = ${sum}`);
+      logLines.push(`Количество = ${count}`);
+      logLines.push(`Частное = ${exactAverage}`);
+      logLines.push(`До 6 знаков: ${exactAverage.toFixed(6)}`);
+      logLines.push(`${roundingResult.decision}`);
+      logLines.push(`Результат: ${roundingResult.roundedValue}`);
+      
+      updateLog(logLines);
+      return { average: roundingResult.roundedValue, exact: exactAverage, sum, count };
+    }
+
+    function updateLog(linesArray) {
+      if (!logContainer) return;
+      let html = linesArray.map(line => {
+        if (line.startsWith('Результат:')) {
+          return `<div class="log-line"><span class="highlight">${line}</span></div>`;
+        }
+        return `<div class="log-line">${line}</div>`;
+      }).join('');
+      logContainer.innerHTML = html;
+    }
+
+    function updateAverageAndLog() {
+      const result = calculateAverage();
+      averageDisplay.textContent = (result && !isNaN(result.average)) ? result.average.toFixed(3) : '—';
+    }
+
+    function fullRefresh() {
+      renderSubjectList();
+      updateAverageAndLog();
+      saveData();
+    }
+
+    function updateSubjectRowUI(subject) {
+      const row = document.querySelector(`.subject-row[data-id="${subject.id}"]`);
+      if (!row) return;
+      row.classList.toggle('active', subject.active);
+      row.classList.toggle('inactive', !subject.active);
+      const cb = row.querySelector('.toggle-check');
+      if (cb) cb.checked = subject.active;
+      const inp = row.querySelector('.grade-input');
+      if (inp) {
+        const val = isInteger(subject.grade) ? subject.grade : '';
+        inp.value = val;
+        inp.classList.toggle('invalid', subject.active && !isInteger(subject.grade) && subject.grade !== null);
+      }
+    }
+
+    function renderSubjectList() {
+      if (!subjectsContainer) return;
+      if (subjects.length === 0) {
+        subjectsContainer.innerHTML = '<div style="padding:1rem;text-align:center;color:#999;">Нет предметов</div>';
+        return;
+      }
+      let html = '';
+      subjects.forEach(sub => {
+        const val = isInteger(sub.grade) ? sub.grade : '';
+        const activeClass = sub.active ? 'active' : 'inactive';
+        const invalidClass = sub.active && val === '' && sub.grade !== null ? 'invalid' : '';
+        html += `
+          <div class="subject-row ${activeClass}" data-id="${sub.id}">
+            <input type="checkbox" class="toggle-check" data-id="${sub.id}" ${sub.active ? 'checked' : ''}>
+            <input type="text" class="subject-name" value="${escapeHtml(sub.name)}" data-id="${sub.id}">
+            <input type="number" class="grade-input ${invalidClass}" value="${val}" placeholder="4" step="1" data-id="${sub.id}">
+            <button class="remove-btn" data-id="${sub.id}">✕</button>
+          </div>`;
+      });
+      subjectsContainer.innerHTML = html;
+
+      subjectsContainer.querySelectorAll('.toggle-check').forEach(cb => cb.addEventListener('change', toggleActive));
+      subjectsContainer.querySelectorAll('.subject-name').forEach(inp => {
+        inp.addEventListener('blur', saveName);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+      });
+      subjectsContainer.querySelectorAll('.grade-input').forEach(inp => {
+        inp.addEventListener('blur', saveGrade);
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+      });
+      subjectsContainer.querySelectorAll('.remove-btn').forEach(btn => btn.addEventListener('click', removeSubject));
+    }
+
+    function escapeHtml(text) {
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function saveName(e) {
+      const id = e.target.dataset.id;
+      const sub = subjects.find(s => s.id === id);
+      if (!sub) return;
+      const newName = e.target.value.trim() || 'Без названия';
+      if (sub.name !== newName) {
+        sub.name = newName;
+        updateAverageAndLog();
+        saveData();
+      }
+      e.target.value = sub.name;
+    }
+
+    function saveGrade(e) {
+      const id = e.target.dataset.id;
+      const sub = subjects.find(s => s.id === id);
+      if (!sub) return;
+      const raw = e.target.value.trim();
+      let newGrade = null;
+      if (raw !== '') {
+        const p = parseFloat(raw);
+        if (!isNaN(p)) newGrade = Math.round(p);
+      }
+      const old = sub.grade;
+      sub.grade = newGrade;
+      e.target.value = newGrade !== null ? newGrade : '';
+      updateSubjectRowUI(sub);
+      if (old !== newGrade) {
+        updateAverageAndLog();
+        saveData();
+      }
+    }
+
+    function toggleActive(e) {
+      const id = e.target.dataset.id;
+      const sub = subjects.find(s => s.id === id);
+      if (sub) {
+        sub.active = e.target.checked;
+        updateSubjectRowUI(sub);
+        updateAverageAndLog();
+        saveData();
+      }
+    }
+
+    function removeSubject(e) {
+      const id = e.target.dataset.id;
+      subjects = subjects.filter(s => s.id !== id);
+      fullRefresh();
+    }
+
+    function exportToExcel() {
+      const result = calculateAverage();
+      const activeSubjects = subjects.filter(sub => sub.active && isInteger(sub.grade));
+      
+      const data = [['Предмет', 'Оценка']];
+      activeSubjects.forEach(sub => data.push([sub.name, sub.grade]));
+      
+      if (result) {
+        data.push([]);
+        data.push(['Сумма', result.sum]);
+        data.push(['Количество', result.count]);
+        data.push(['Точное среднее', result.exact]);
+        data.push(['Округлённое (до тысячных)', result.average]);
+      }
+      
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(data);
+      ws['!cols'] = [{ wch: 28 }, { wch: 12 }];
+      XLSX.utils.book_append_sheet(wb, ws, 'Средний балл');
+      
+      XLSX.writeFile(wb, `средний_балл_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    function importFromExcel(file) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+          
+          if (rows.length < 2) {
+            alert('Файл пуст.');
+            return;
+          }
+          
+          const header = rows[0];
+          const nameIndex = header.findIndex(h => h && h.toString().toLowerCase().includes('предмет'));
+          const gradeIndex = header.findIndex(h => h && h.toString().toLowerCase().includes('оценка'));
+          
+          if (nameIndex === -1 || gradeIndex === -1) {
+            alert('Нужны столбцы "Предмет" и "Оценка".');
+            return;
+          }
+          
+          const newSubjects = [];
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || !row[nameIndex]) break;
+            const name = String(row[nameIndex]).trim();
+            const gradeRaw = row[gradeIndex];
+            
+            if (name && gradeRaw !== undefined && gradeRaw !== null && gradeRaw !== '') {
+              const gradeNum = parseInt(gradeRaw, 10);
+              if (!isNaN(gradeNum)) {
+                newSubjects.push({ id: generateId(), name, grade: gradeNum, active: true });
+              }
+            }
+          }
+          
+          if (newSubjects.length === 0) {
+            alert('Нет корректных данных.');
+            return;
+          }
+          
+          subjects = newSubjects;
+          fullRefresh();
+          alert(`Импортировано: ${newSubjects.length} предметов`);
+        } catch (err) {
+          alert('Ошибка: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    addSubjectBtn.addEventListener('click', () => {
+      const ns = { id: generateId(), name: 'Новый предмет', grade: null, active: true };
+      subjects.push(ns);
+      fullRefresh();
+      setTimeout(() => {
+        const row = document.querySelector(`.subject-row[data-id="${ns.id}"]`);
+        if (row) { const ni = row.querySelector('.subject-name'); if (ni) { ni.focus(); ni.select(); } }
+      }, 30);
+    });
+
+    resetDemoBtn.addEventListener('click', () => {
+      if (confirm('Сбросить к школьному списку? Все изменения будут потеряны.')) {
+        setSchoolSubjects();
+        fullRefresh();
+      }
+    });
+
+    exportBtn.addEventListener('click', exportToExcel);
+    importBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        importFromExcel(e.target.files[0]);
+        fileInput.value = '';
+      }
+    });
+
+    // Регистрация Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    fullRefresh();
+  })();
+</script>
+</body>
+</html>
